@@ -238,6 +238,10 @@ function normalizeCoordinates(coordinates) {
   }
 }
 
+function getBidderURL() {
+  return BID_URL + '?cid=' + encodeURIComponent($$PREBID_GLOBAL$$.medianetGlobals.cid);
+}
+
 function generatePayload(bidRequests, bidderRequests) {
   return {
     site: siteDetails(bidRequests[0].params.site),
@@ -335,7 +339,7 @@ export const spec = {
     let payload = generatePayload(bidRequests, bidderRequests);
     return {
       method: 'POST',
-      url: BID_URL,
+      url: getBidderURL(),
       data: JSON.stringify(payload)
     };
   },

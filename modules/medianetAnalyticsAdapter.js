@@ -209,6 +209,16 @@ class AdSlot {
     this.logged = false;
     this.targeting = undefined;
     this.medianetPresent = 0;
+    this.shouldBeLogged = undefined;
+  }
+
+  getShouldBeLogged() {
+    // shouldBeLogged is assigned when requested,
+    // since we are waiting for logging percent response
+    if (this.shouldBeLogged === undefined) {
+      this.shouldBeLogged = isSampled();
+    }
+    return this.shouldBeLogged;
   }
 
   getLoggingData() {
@@ -508,7 +518,7 @@ function sendEvent(id, adunit, isBidWonEvent) {
   }
   if (isBidWonEvent) {
     fireAuctionLog(id, adunit, isBidWonEvent);
-  } else if (isSampled() && !auctions[id].adSlots[adunit].logged) {
+  } else if (auctions[id].adSlots[adunit].getShouldBeLogged() && !auctions[id].adSlots[adunit].logged) {
     auctions[id].adSlots[adunit].logged = true;
     fireAuctionLog(id, adunit, isBidWonEvent);
   }
