@@ -8,6 +8,8 @@ import { deepAccess, isEmpty, logError, parseSizesInput, formatQS, parseUrl, bui
 import { config } from '../src/config.js';
 import { getHook, submodule } from '../src/hook.js';
 import { auctionManager } from '../src/auctionManager.js';
+import events from '../src/events.js';
+import CONSTANTS from '../src/constants.json';
 
 /**
  * @typedef {Object} DfpVideoParams
@@ -253,8 +255,10 @@ function getCustParams(bid, options) {
     { hb_cache_id: bid && bid.videoCacheKey },
     allTargetingData,
     adserverTargeting,
-    optCustParams,
   );
+
+  events.emit(CONSTANTS.EVENTS.SET_TARGETING, {[adUnit.code]: customParams});
+  customParams = Object.assign(customParams, optCustParams)
   return encodeURIComponent(formatQS(customParams));
 }
 
