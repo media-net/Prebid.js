@@ -2,6 +2,8 @@ import adapter from '../src/AnalyticsAdapter.js';
 import adapterManager from '../src/adapterManager.js';
 import CONSTANTS from '../src/constants.json';
 import * as utils from '../src/utils.js';
+import { OUTSTREAM } from '../src/video.js';
+import { VIDEO } from '../src/mediaTypes.js';
 import { ajax } from '../src/ajax.js';
 import { getRefererInfo } from '../src/refererDetection.js';
 import { AUCTION_COMPLETED, AUCTION_IN_PROGRESS, getPriceGranularity } from '../src/auction.js'
@@ -382,6 +384,64 @@ class Auction {
   }
 }
 
+/**
+ * Here the idea is
+ * find all network entries via performance.getEntriesByType()
+ * filter it by video cache key in the url
+ * and exclude the ad server urls so that we dont match twice
+ * eg:
+ * dfp ads call: https://securepubads.g.doubleclick.net/gampad/ads?...hb_cache_id%3D55e85cd3-6ea4-4469-b890-84241816b131%26...
+ * prebid cache url: https://prebid.adnxs.com/pbc/v1/cache?uuid=55e85cd3-6ea4-4469-b890-84241816b131
+ *
+ * if the entry exists, emit the BID_WON
+ */
+function findRenderedVideoImpressions(auction) {
+  // filter for video bids
+  const videoBids = auction.bids.filter(bid => bid.mediaType === VIDEO && bid.context !== OUTSTREAM && bid.videoCacheKey)
+  // check if performance api is available
+  if (!videoBids.length || !window.performance || !window.performance.getEntriesByType) {
+    return;
+  }
+  const timeLimit = 15 * 1000 * 60;
+  const start = Date.now();
+  const bidWonMap = {};
+
+  let lastRead = 0;
+
+  function poll() {
+    // get network entries using the last read offset
+    const entries = window.performance.getEntriesByType('resource').splice(lastRead);
+    for (const res of entries) {
+      const url = res.name;
+      videoBids.forEach((bid) => {
+        // match the video cache key excluding ad server call
+        const matches = !url.includes(CONSTANTS.TARGETING_KEYS.CACHE_ID) && url.includes(bid.videoCacheKey);
+        if (matches && !bidWonMap[bid.bidId]) {
+          // video found
+          bidWonMap[bid.bidId] = bid;
+          bid.requestId = bid.bidId;
+          bid.auctionId = auction.acid;
+          bid.adUnitCode = bid.supplyAdCode;
+          // log BID_WON
+          bidWonHandler(bid);
+        }
+      });
+    }
+    // update offset
+    lastRead += entries.length;
+
+    const lastCheckedDiff = Date.now() - start;
+    if (lastCheckedDiff < timeLimit && Object.keys(bidWonMap).length < auction.adSlots.length) {
+      setTimeout(poll, 2e3);
+    }
+  }
+
+  // start polling for network entries
+  setTimeout(poll, 2e3);
+}
+
+// --------------------- event handlers ---------------------
+
 function auctionInitHandler({auctionId, timestamp, bidderRequests}) {
   if (auctionId && auctions[auctionId] === undefined) {
     auctions[auctionId] = new Auction(auctionId);
@@ -422,6 +482,7 @@ function bidRequestedHandler({ auctionId, auctionStart, bids, start, timeout, us
       );
     }
     let bidObj = new Bid(bidId, bidder, src, start, adUnitCode);
+    bidObj.context = utils.deepAccess(mediaTypes, `${VIDEO}.context`)
     auctions[auctionId].addBid(bidObj);
     if (bidder === MEDIANET_BIDDER_CODE) {
       bidObj.crid = utils.deepAccess(bid, 'params.crid');
@@ -444,7 +505,7 @@ function _getSizes(mediaTypes, sizes) {
 
 function bidResponseHandler(bid) {
   const { width, height, mediaType, cpm, requestId, timeToRespond, auctionId, dealId } = bid;
-  const {originalCpm, bidderCode, creativeId, adId, currency} = bid;
+  const { originalCpm, bidderCode, creativeId, adId, currency, videoCacheKey } = bid;
 
   if (!(auctions[auctionId] instanceof Auction)) {
     return;
@@ -456,7 +517,7 @@ function bidResponseHandler(bid) {
   Object.assign(
     bidObj,
     { cpm, width, height, mediaType, timeToRespond, dealId, creativeId },
-    { adId, currency }
+    { adId, currency, videoCacheKey }
   );
   bidObj.floorPrice = utils.deepAccess(bid, 'floorData.floorValue');
   bidObj.floorRule = utils.deepAccess(bid, 'floorData.floorRule');
@@ -517,6 +578,7 @@ function auctionEndHandler({ auctionId, auctionEnd }) {
   }
   auctions[auctionId].status = AUCTION_COMPLETED;
   auctions[auctionId].auctionEndTime = auctionEnd;
+  findRenderedVideoImpressions(auctions[auctionId]);
 }
 
 function setTargetingHandler(params) {
