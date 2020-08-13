@@ -1,9 +1,9 @@
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import * as utils from '../src/utils.js';
 import { config } from '../src/config.js';
-import * as url from '../src/url.js';
-import { BANNER, NATIVE } from '../src/mediaTypes.js';
+import { BANNER, NATIVE, VIDEO } from '../src/mediaTypes.js';
 import { getRefererInfo } from '../src/refererDetection.js';
+import * as url from '../src/url.js';
 
 const BIDDER_CODE = 'medianet';
 const BID_URL = 'https://prebid.media.net/rtb/prebid';
@@ -158,7 +158,15 @@ function slotParams(bidRequest) {
     },
     all: bidRequest.params
   };
-  let bannerSizes = utils.deepAccess(bidRequest, 'mediaTypes.banner.sizes') || bidRequest.sizes || [];
+  let bannerSizes = utils.deepAccess(bidRequest, 'mediaTypes.banner.sizes') || [];
+
+  const videoInMediaType = utils.deepAccess(bidRequest, 'mediaTypes.video') || {};
+  const videoInParams = utils.deepAccess(bidRequest, 'params.video') || {};
+  const videoCombinedObj = Object.assign({}, videoInParams, videoInMediaType);
+
+  if (!utils.isEmpty(videoCombinedObj)) {
+    params.video = videoCombinedObj;
+  }
 
   if (bannerSizes.length > 0) {
     params.banner = transformSizes(bannerSizes);
@@ -299,7 +307,7 @@ export const spec = {
   code: BIDDER_CODE,
   gvlid: 142,
 
-  supportedMediaTypes: [BANNER, NATIVE],
+  supportedMediaTypes: [BANNER, NATIVE, VIDEO],
 
   /**
    * Determines whether or not the given bid request is valid.
