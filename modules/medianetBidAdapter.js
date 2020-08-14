@@ -18,10 +18,12 @@ const EVENTS = {
 const EVENT_PIXEL_URL = 'qsearch-a.akamaihd.net/log';
 
 let refererInfo = getRefererInfo();
+const parsed = document.createElement('a');
+parsed.href = decodeURIComponent(refererInfo.referer);
 
 let mnData = {};
 mnData.urlData = {
-  domain: utils.parseUrl(refererInfo.referer).hostname,
+  domain: parsed.hostname,
   page: refererInfo.referer,
   isTop: refererInfo.reachedTop
 }
