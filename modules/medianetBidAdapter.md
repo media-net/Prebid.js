@@ -80,8 +80,7 @@ var videoAdUnit = {
     video: {
       context: "instream",
       playerSize: [640, 480],
-      mimes: ['video/mp4'],
-      placement: 1
+      mimes: ['video/mp4']
     }
   },
   bids: [{
@@ -89,6 +88,9 @@ var videoAdUnit = {
     params: {
       cid: '8CUX0H51C',
       crid: '776755783', 
+      video: {
+          placement: 1
+      },  
       // Site member is to be used only for testing
       site: {
         page: 'http://smoketesting.net/prebidtest/',
@@ -112,8 +114,7 @@ var videoAdUnit = {
         video: {
              context: "outstream",
              playerSize: [640, 480],
-             mimes: ['video/mp4'],
-             placement: 1
+             mimes: ['video/mp4']
         }
     },
     /**
@@ -130,6 +131,9 @@ var videoAdUnit = {
         params: {
             cid: '8CUX0H51C',
             crid: '776755783', 
+            video: {
+                placement: 1
+            },
             // Site member is to be used only for testing
             site: {
                 page: 'http://smoketesting.net/prebidtest/',
